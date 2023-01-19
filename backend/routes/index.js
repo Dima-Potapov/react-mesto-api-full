@@ -2,7 +2,6 @@ const router = require('express').Router();
 const { celebrate, Joi } = require('celebrate');
 const userRoutes = require('./users');
 const cardRoutes = require('./cards');
-const CastError = require('../utils/errors');
 const { linkRegex } = require('../utils/regexTemplates');
 const {
   login,
@@ -11,6 +10,7 @@ const {
   successfulAuth,
 } = require('../controllers/users');
 const auth = require('../middlewares/auth');
+const NotFoundError = require('../errors/notFoundError');
 
 router.post('/signin', celebrate({
   body: Joi.object().keys({
@@ -34,7 +34,7 @@ router.delete('/signout', auth, signOut);
 router.use('/users', auth, userRoutes);
 router.use('/cards', auth, cardRoutes);
 router.use('/', () => {
-  throw new CastError('Страница не найдена', 404);
+  throw new NotFoundError('Страница не найдена');
 });
 
 module.exports = router;

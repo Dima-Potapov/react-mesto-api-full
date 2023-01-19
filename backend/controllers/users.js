@@ -2,23 +2,26 @@ const bcrypt = require('bcryptjs');
 const jwt = require('jsonwebtoken');
 
 const User = require('../models/user');
-const CastError = require('../utils/errors');
+const NotFoundError = require('../errors/notFoundError');
+const NotValidError = require('../errors/notValidError');
+const ConflictError = require('../errors/conflictError');
+const UnauthorizedError = require('../errors/unauthorizedError');
 
 require('dotenv')
   .config();
 
 const { JWT_SECRET = 'dev-secret' } = process.env;
 
-const getAuthUser = (req, res) => {
+const getAuthUser = (req, res, next) => {
   const { _id: userId } = req.user;
 
   User.findById(userId)
     .then((user) => res.status(200)
       .send(user))
     .catch((error) => {
-      if (error.name === 'CastError') throw new CastError('Пользователь по указанному _id не найден', 404);
+      if (error.name === 'CastError') return next(new NotFoundError('Пользователь по указанному _id не найден'));
 
-      throw new CastError();
+      return next(next);
     });
 };
 
@@ -51,10 +54,10 @@ const createUser = (req, res, next) => {
         email: user.email,
       }))
     .catch((error) => {
-      if (error.name === 'ValidationError') return next(new CastError('Переданы некорректные данные при создании пользователя', 400));
-      if (error.code === 11000) return next(new CastError('Пользователь с таким email уже зарегистрирован', 409));
+      if (error.name === 'ValidationError') return next(new NotValidError('Переданы некорректные данные при создании пользователя'));
+      if (error.code === 11000) return next(new ConflictError('Пользователь с таким email уже зарегистрирован'));
 
-      return next(new CastError());
+      return next(error);
     });
 };
 const getUsers = (req, res, next) => {
@@ -69,15 +72,15 @@ const getUserById = (req, res, next) => {
 
   User.findById(userId)
     .then((user) => {
-      if (!user) throw new CastError('Пользователь по указанному _id не найден', 404);
+      if (!user) throw new NotFoundError('Пользователь по указанному _id не найден');
 
       return res.status(200)
         .send(user);
     })
     .catch((error) => {
-      if (error.name === 'CastError') throw new CastError('Пользователь по указанному _id не найден', 400);
+      if (error.name === 'CastError') return next(new NotValidError('Пользователь по указанному _id не найден'));
 
-      next(error);
+      return next(error);
     });
 };
 
@@ -103,10 +106,10 @@ const updateUser = (req, res, next) => {
     .then((user) => res.status(200)
       .send(user))
     .catch((error) => {
-      if (error.name === 'CastError') throw new CastError('Пользователь по указанному _id не найден', 404);
-      if (error.name === 'ValidationError') throw new CastError('Переданы некорректные данные при обновлении профиля', 400);
+      if (error.name === 'CastError') return next(new NotFoundError('Пользователь по указанному _id не найден'));
+      if (error.name === 'ValidationError') return next(new NotValidError('Переданы некорректные данные при обновлении профиля'));
 
-      next(error);
+      return next(error);
     });
 };
 
@@ -126,10 +129,10 @@ const updateAvatarUser = (req, res, next) => {
     .then((user) => res.status(200)
       .send(user))
     .catch((error) => {
-      if (error.name === 'CastError') throw new CastError('Пользователь по указанному _id не найден', 404);
-      if (error.name === 'ValidationError') throw new CastError('Переданы некорректные данные при обновлении аватара', 400);
+      if (error.name === 'CastError') return next(new NotFoundError('Пользователь по указанному _id не найден'));
+      if (error.name === 'ValidationError') return next(new NotValidError('Переданы некорректные данные при обновлении аватара'));
 
-      next(error);
+      return next(error);
     });
 };
 
@@ -142,11 +145,11 @@ const login = (req, res, next) => {
   User.findOne({ email })
     .select('+password')
     .then((user) => {
-      if (!user) throw new CastError('Неправильные почта или пароль', 401);
+      if (!user) throw new UnauthorizedError('Неправильные почта или пароль');
 
       return bcrypt.compare(password, user.password)
         .then((matched) => {
-          if (!user || !matched) throw new CastError('Неправильные почта или пароль', 401);
+          if (!user || !matched) throw new UnauthorizedError('Неправильные почта или пароль');
 
           const token = jwt.sign({ _id: user._id }, JWT_SECRET, { expiresIn: '7d' });
 
@@ -165,11 +168,11 @@ const login = (req, res, next) => {
 };
 
 const signOut = (req, res) => {
-  res.clearCookie('jwt').send({ massege: 'cookie удалена!' });
+  res.clearCookie('jwt').send({ message: 'cookie удалена!' });
 };
 
 const successfulAuth = (req, res) => {
-  res.send({ massege: 'Пользователь авторизован!' });
+  res.send({ message: 'Пользователь авторизован!' });
 };
 
 module.exports = {

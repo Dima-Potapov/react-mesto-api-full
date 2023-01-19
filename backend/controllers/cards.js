@@ -1,5 +1,7 @@
 const Card = require('../models/card');
-const CastError = require('../utils/errors');
+const NotValidError = require('../errors/notValidError');
+const NotFoundError = require('../errors/notFoundError');
+const ForbiddenError = require('../errors/forbiddenError');
 
 const createCard = (req, res, next) => {
   const {
@@ -15,9 +17,9 @@ const createCard = (req, res, next) => {
     .then((card) => res.status(201)
       .send(card))
     .catch((error) => {
-      if (error.name === 'ValidationError') throw new CastError('Переданы некорректные данные при создании карточки', 400);
+      if (error.name === 'ValidationError') return next(new NotValidError('Переданы некорректные данные при создании карточки'));
 
-      next(error);
+      return next(error);
     });
 };
 const getCards = (req, res, next) => {
@@ -34,8 +36,8 @@ const deleteCardById = (req, res, next) => {
   Card.findById(cardId)
     .populate('owner')
     .then((card) => {
-      if (!card) throw new CastError('Карточка с указанным _id не найдена', 404);
-      if (card.owner._id.valueOf() !== userId) throw new CastError('Нельзя удалить чужую карточку', 403);
+      if (!card) throw new NotFoundError('Карточка с указанным _id не найдена');
+      if (card.owner._id.valueOf() !== userId) throw new ForbiddenError('Нельзя удалить чужую карточку');
 
       Card.findByIdAndDelete(card._id)
         .then((removedCard) => res.status(200)
@@ -58,18 +60,17 @@ const addLikeCard = (req, res, next) => {
     },
   )
     .then((card) => {
-      if (!card) return next(new CastError('Передан несуществующий _id', 404));
+      if (!card) return next(new NotFoundError('Передан несуществующий _id'));
 
       return res.status(200)
         .send(card);
     })
     .catch((error) => {
-      if (error.name === 'CastError') throw new CastError('Передан несуществующий _id карточки', 400);
-      if (error.name === 'ValidationError') throw new CastError('Переданы некорректные данные для постановки/снятии лайка', 400);
+      if (error.name === 'CastError') return next(new NotValidError('Передан несуществующий _id карточки'));
+      if (error.name === 'ValidationError') return next(new NotValidError('Переданы некорректные данные для постановки/снятии лайка'));
 
-      return error;
-    })
-    .catch(next);
+      return next(error);
+    });
 };
 
 const deleteLikeCard = (req, res, next) => {
@@ -85,15 +86,15 @@ const deleteLikeCard = (req, res, next) => {
     },
   )
     .then((card) => {
-      if (!card) throw new CastError('Передан несуществующий _id', 404);
+      if (!card) throw new NotFoundError('Передан несуществующий _id');
 
       res.status(200)
         .send(card);
     })
     .catch((error) => {
-      if (error.name === 'CastError') throw new CastError('Передан несуществующий _id карточки', 400);
+      if (error.name === 'CastError') return next(new NotValidError('Передан несуществующий _id карточки'));
 
-      next(error);
+      return next(error);
     });
 };
 
