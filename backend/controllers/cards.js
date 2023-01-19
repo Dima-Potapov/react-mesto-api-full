@@ -34,7 +34,6 @@ const deleteCardById = (req, res, next) => {
   const { _id: userId } = req.user;
 
   Card.findById(cardId)
-    .populate('owner')
     .then((card) => {
       if (!card) throw new NotFoundError('Карточка с указанным _id не найдена');
       if (card.owner._id.valueOf() !== userId) throw new ForbiddenError('Нельзя удалить чужую карточку');
@@ -44,7 +43,11 @@ const deleteCardById = (req, res, next) => {
           .send(removedCard))
         .catch(next);
     })
-    .catch(next);
+    .catch((error) => {
+      if (error.name === 'CastError') return next(new NotValidError('Передан несуществующий _id карточки'));
+
+      return next(error);
+    });
 };
 
 const addLikeCard = (req, res, next) => {
